@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SneakersDock — Ma collection</title>
+
+  <style>
+    body {
+      max-width: 760px;
+      margin: 40px auto;
+      padding: 0 16px;
+      font-family: system-ui, sans-serif;
+      color: #292526;
+      background: white;
+    }
+
+    h1 { color: #a82335; }
+    h2 { margin: 32px 0 12px; font-size: 1.2rem; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 10px 8px;
+      text-align: left;
+      border-bottom: 1px solid #e5dddd;
+    }
+
+    th { background: #faf1f2; }
+
+    form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    label { display: grid; gap: 4px; }
+
+    input, button {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font: inherit;
+    }
+
+    button {
+      grid-column: 1 / -1;
+      background: #a82335;
+      border: 0;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover { background: #861c2b; }
+
+    @media (max-width: 550px) {
+      form { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <h1>SneakersDock</h1>
+
+  <h2>Ma collection</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Marque</th>
+        <th>Modèle</th>
+        <th>Pointure</th>
+        <th>Couleur</th>
+      </tr>
+    </thead>
+    <tbody id="liste"></tbody>
+  </table>
+
+  <h2>Ajouter une paire</h2>
+  <form id="formulaire">
+    <label>Marque <input name="marque" placeholder="Ex. Asics" required></label>
+    <label>Modèle <input name="modele" placeholder="Ex. GEL-1130" required></label>
+    <label>Pointure EU <input name="pointure" placeholder="Ex. 42" required></label>
+    <label>Couleur <input name="couleur" placeholder="Ex. Blanc et gris" required></label>
+    <button type="submit">Ajouter la paire</button>
+  </form>
+  <p id="message" role="status"></p>
+
+  <script>
+    const api = "/api/sneakers";
+    const liste = document.getElementById("liste");
+    const formulaire = document.getElementById("formulaire");
+    const message = document.getElementById("message");
+
+    async function rafraichir() {
+      try {
+        const reponse = await fetch(api);
+        if (!reponse.ok) throw new Error();
+
+        const paires = await reponse.json();
+        liste.innerHTML = "";
+
+        if (paires.length === 0) {
+          liste.innerHTML = '<tr><td colspan="4">Aucune paire pour le moment.</td></tr>';
+        }
+
+        for (const paire of paires) {
+          const ligne = liste.insertRow();
+          for (const valeur of [paire.marque, paire.modele, paire.pointure, paire.couleur]) {
+            ligne.insertCell().textContent = valeur;
+          }
+        }
+      } catch {
+        liste.innerHTML = '<tr><td colspan="4">Impossible de charger la collection.</td></tr>';
+      }
+    }
+
+    formulaire.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const paire = Object.fromEntries(new FormData(formulaire));
+
+      try {
+        const reponse = await fetch(api, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(paire)
+        });
+
+        if (!reponse.ok) throw new Error();
+
+        formulaire.reset();
+        message.textContent = "Paire ajoutée à la collection.";
+        await rafraichir();
+      } catch {
+        message.textContent = "Impossible d’enregistrer la paire.";
+      }
+    });
+
+    rafraichir();
+  </script>
+</body>
+</html>
