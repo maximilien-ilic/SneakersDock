@@ -21,11 +21,11 @@ let dernierMessage = "";
 
 // Quelques chaussures inventées, ajoutées si la table est vide.
 const CHAUSSURE_DE_DEPART = [
-  ["NOM", "PRIX", "année de sortie", "pointure"],
-  ["Lab Mac", "2026-10-12", "14:00 - 16:00", "Projet A3 - groupe 4"],
-  ["Amphi B", "2026-10-13", "12:30 - 13:30", "Réunion BDE"],
-  ["Salle 204", "2026-10-14", "10:00 - 12:00", "Atelier portfolio"],
-  ["Studio son", "2026-10-15", "15:00 - 17:00", "Enregistrement podcast"],
+  ["Nike Air Force 1", "119.99", "1982", "42"],
+  ["Air Jordan 1 Retro High", "180.00", "1985", "43"],
+  ["Adidas Superstar", "100.00", "1970", "41"],
+  ["Adidas Stan Smith", "95.00", "1971", "44"],
+  ["Converse Chuck Taylor All Star", "70.00", "1917", "40"],
 ];
 
 // Se connecte à la base, crée la table si besoin et ajoute les données de départ.
