@@ -5,16 +5,15 @@ services:
       - "3000:3000"
     environment:
       PGHOST: db
-
     depends_on:
       - db
 
   db:
-    image: postgres:18-alpine
+    image: alpine/sqlite:3.53.4
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      SQLITE_USER: ${SQLITE_USER}
+      SQLITE_PASSWORD: ${SQLITE_PASSWORD}
+      SQLITE_DB: ${SQLITE_DB}
     volumes:
       - donnees-td4:/var/lib/postgresql
 
