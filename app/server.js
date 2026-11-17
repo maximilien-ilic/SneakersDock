@@ -1,23 +1,22 @@
-
 const os = require("node:os");
 const path = require("node:path");
 const express = require("express");
-const { Pool } = require("pg");
-
+const mysql = require("mysql2/promise");
 
 const PORT = process.env.PORT || 3000;
 
-const pool = new Pool();
-
-// Évite que l'application plante si la base disparaît en cours de route.
-pool.on("error", (err) => {
-  console.error("Base : connexion perdue (" + err.message + ")");
-  baseConnectee = false;
-  setTimeout(connecterLaBase, 2000);
+const pool = mysql.createPool({
+  host: process.env.MYSQL_HOST,
+  user: process.env.MYSQL_USER,
+  password: process.env.MYSQL_PASSWORD,
+  database: process.env.MYSQL_DATABASE,
+  waitForConnections: true,
+  connectionLimit: 10,
 });
 
 let baseConnectee = false;
 let dernierMessage = "";
+let reconnexionEnCours = false;
 
 // Quelques chaussures inventées, ajoutées si la table est vide.
 const CHAUSSURE_DE_DEPART = [
@@ -35,19 +34,19 @@ async function connecterLaBase() {
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS chaussure (
-        id serial PRIMARY KEY,
-        nom text NOT NULL,
-        prix float NOT NULL,
-        annee_sortie integer NOT NULL,
-        pointure integer NOT NULL
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nom VARCHAR(255) NOT NULL,
+        prix DECIMAL(8,2) NOT NULL,
+        annee_sortie INT NOT NULL,
+        pointure INT NOT NULL
       )
     `);
 
-    const { rows } = await pool.query("SELECT count(*)::int AS total FROM chaussure");
+    const [rows] = await pool.query("SELECT COUNT(*) AS total FROM chaussure");
     if (rows[0].total === 0) {
       for (const r of CHAUSSURE_DE_DEPART) {
-        await pool.query(
-          "INSERT INTO chaussure (nom, prix, annee_sortie, pointure) VALUES ($1, $2, $3, $4)",
+        await pool.execute(
+          "INSERT INTO chaussure (nom, prix, annee_sortie, pointure) VALUES (?, ?, ?, ?)",
           r
         );
       }
@@ -55,13 +54,25 @@ async function connecterLaBase() {
     }
 
     baseConnectee = true;
+    reconnexionEnCours = false;
     console.log("Base : connectée");
   } catch (err) {
     baseConnectee = false;
     // On n'affiche le message que s'il change, pour ne pas inonder les logs.
-    const message = "Base : non connectée (" + err.message + "), nouvel essai toutes les 2 s";
+    const message = "Base : non connectée (" + (err.message || err.code) + "), nouvel essai toutes les 2 s";
     if (message !== dernierMessage) console.log(message);
     dernierMessage = message;
+    setTimeout(connecterLaBase, 2000);
+  }
+}
+
+// Si une requête échoue parce que la base a disparu, on relance la connexion.
+function verifierConnexion(err) {
+  const codes = ["PROTOCOL_CONNECTION_LOST", "ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND"];
+  if (codes.includes(err.code) && !reconnexionEnCours) {
+    console.error("Base : connexion perdue (" + err.code + ")");
+    baseConnectee = false;
+    reconnexionEnCours = true;
     setTimeout(connecterLaBase, 2000);
   }
 }
@@ -90,11 +101,12 @@ app.get("/api/chaussures", async (req, res) => {
     return res.status(503).json({ erreur: "base non connectée" });
   }
   try {
-    const { rows } = await pool.query(
+    const [rows] = await pool.query(
       "SELECT id, nom, prix, annee_sortie, pointure FROM chaussure ORDER BY nom"
     );
     res.json(rows);
   } catch (err) {
+    verifierConnexion(err);
     res.status(500).json({ erreur: err.message });
   }
 });
@@ -105,16 +117,21 @@ app.post("/api/chaussures", async (req, res) => {
     return res.status(503).json({ erreur: "base non connectée" });
   }
   const { nom, prix, annee_sortie, pointure } = req.body || {};
-  if (!nom || !prix || !annee_sortie || !pointure) {
+  if (!nom || prix === undefined || prix === "" || !annee_sortie || !pointure) {
     return res.status(400).json({ erreur: "nom, prix, année de sortie et pointure sont obligatoires" });
   }
   try {
-    const { rows } = await pool.query(
-      "INSERT INTO chaussure (nom, prix, annee_sortie, pointure) VALUES ($1, $2, $3, $4) RETURNING id, nom, prix, annee_sortie, pointure",
+    const [resultat] = await pool.execute(
+      "INSERT INTO chaussure (nom, prix, annee_sortie, pointure) VALUES (?, ?, ?, ?)",
       [nom, prix, annee_sortie, pointure]
+    );
+    const [rows] = await pool.query(
+      "SELECT id, nom, prix, annee_sortie, pointure FROM chaussure WHERE id = ?",
+      [resultat.insertId]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
+    verifierConnexion(err);
     res.status(400).json({ erreur: err.message });
   }
 });

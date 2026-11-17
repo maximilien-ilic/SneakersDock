@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SneakersDock - Ma collection</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      max-width: 1080px;
+      margin: auto;
+      padding: 0 24px 48px;
+      font: 1rem/1.5 system-ui, sans-serif;
+      color: #30272a;
+      background: white;
+    }
+
+    header { padding: 22px 0; border-bottom: 2px solid #a52239; }
+    h1 { margin: 0; font-size: 2rem; letter-spacing: -.06em; }
+    h1 span { color: #a52239; }
+    h2 { margin: 0 0 18px; font-size: 1.35rem; }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 36px;
+      align-items: start;
+      margin-top: 32px;
+    }
+
+    #compteur { font-size: .9rem; color: #7c6269; font-weight: normal; }
+
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th, td {
+      padding: 12px 6px;
+      text-align: left;
+      overflow-wrap: anywhere;
+      border-bottom: 1px solid #e9dfe1;
+    }
+
+    th { color: #745962; font-size: .85rem; }
+    tbody tr:hover { background: #fcf7f8; }
+
+    .ajout {
+      padding: 22px;
+      background: #fcf4f5;
+      border: 1px solid #efdee2;
+      border-radius: 12px;
+    }
+
+    form, label { display: grid; }
+    form { gap: 14px; }
+    label { gap: 4px; font-size: .9rem; font-weight: 600; }
+
+    input, button {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font: inherit;
+    }
+
+    input { border: 1px solid #d6c8cc; background: white; }
+    button {
+      border: 0;
+      background: #a52239;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover { background: #83192e; }
+    button:disabled { opacity: .7; cursor: wait; }
+    :focus-visible { outline: 2px solid #a52239; outline-offset: 3px; }
+
+    #message { margin: 12px 0 0; font-size: .9rem; }
+    #message:empty { margin: 0; }
+
+    @media (max-width: 740px) {
+      body { padding: 0 14px 32px; }
+      main { grid-template-columns: 1fr; gap: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sneakers<span>Dock</span></h1>
+  </header>
+
+  <main>
+    <section>
+      <h2>Ma collection <span id="compteur"></span></h2>
+
+      <table aria-label="Ma collection de sneakers">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Prix</th>
+            <th>Année de sortie</th>
+            <th>Pointure EU</th>
+          </tr>
+        </thead>
+        <tbody id="liste">
+          <tr><td colspan="4">Chargement…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="ajout">
+      <h2>Ajouter une paire</h2>
+
+      <form id="formulaire">
+        <label>Nom <input name="nom" placeholder="Ex. Asics GEL-1130" required></label>
+        <label>Prix (€) <input name="prix" type="number" step="0.01" min="0" placeholder="Ex. 129.99" required></label>
+        <label>Année de sortie <input name="annee_sortie" type="number" min="1900" max="2100" placeholder="Ex. 2021" required></label>
+        <label>Pointure EU <input name="pointure" type="number" min="20" max="55" placeholder="Ex. 42" required></label>
+        <button type="submit">Ajouter à ma collection</button>
+      </form>
+
+      <p id="message" role="status"></p>
+    </section>
+  </main>
+
+  <script>
+    const api = "/api/chaussures";
+    const liste = document.querySelector("#liste");
+    const compteur = document.querySelector("#compteur");
+    const formulaire = document.querySelector("#formulaire");
+    const bouton = formulaire.querySelector("button");
+    const message = document.querySelector("#message");
+
+    function afficherInfo(texte) {
+      liste.replaceChildren();
+      const cellule = liste.insertRow().insertCell();
+      cellule.colSpan = 4;
+      cellule.textContent = texte;
+    }
+
+    async function rafraichir() {
+      try {
+        const reponse = await fetch(api);
+        if (!reponse.ok) throw new Error();
+
+        const paires = await reponse.json();
+        if (!Array.isArray(paires)) throw new Error();
+
+        compteur.textContent = `(${paires.length})`;
+
+        if (paires.length === 0) {
+          afficherInfo("Ta première paire apparaîtra ici.");
+          return;
+        }
+
+        liste.replaceChildren();
+        for (const p of paires) {
+          const ligne = liste.insertRow();
+          const valeurs = [
+            p.nom,
+            Number(p.prix).toFixed(2) + " €",
+            p.annee_sortie,
+            p.pointure
+          ];
+          for (const valeur of valeurs) {
+            ligne.insertCell().textContent = valeur;
+          }
+        }
+      } catch {
+        compteur.textContent = "";
+        afficherInfo("Impossible de charger la collection.");
+      }
+    }
+
+    formulaire.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      bouton.disabled = true;
+      message.textContent = "Enregistrement…";
+
+      try {
+        const paire = Object.fromEntries(new FormData(formulaire));
+        const reponse = await fetch(api, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(paire)
+        });
+
+        if (!reponse.ok) {
+          const erreur = await reponse.json().catch(() => ({}));
+          throw new Error(erreur.erreur || "erreur " + reponse.status);
+        }
+
+        formulaire.reset();
+        message.textContent = "Paire ajoutée à la collection.";
+        await rafraichir();
+      } catch (err) {
+        message.textContent = "Impossible d’enregistrer la paire : " + err.message;
+      } finally {
+        bouton.disabled = false;
+      }
+    });
+
+    rafraichir();
+  </script>
+</body>
+</html>
