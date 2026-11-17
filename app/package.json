@@ -1,0 +1,17 @@
+{
+  "name": "SneakersDock",
+  "version": "1.0.0",
+  "description": "Ajout d'une application web pour la gestion des sneakers",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "pg": "^8.23.1"
+  }
+}
