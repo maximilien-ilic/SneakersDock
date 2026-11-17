@@ -95,10 +95,10 @@
       <table aria-label="Ma collection de sneakers">
         <thead>
           <tr>
-            <th>Marque</th>
-            <th>Modèle</th>
+            <th>Nom</th>
+            <th>Prix</th>
+            <th>Année de sortie</th>
             <th>Pointure EU</th>
-            <th>Couleur</th>
           </tr>
         </thead>
         <tbody id="liste">
@@ -111,10 +111,10 @@
       <h2>Ajouter une paire</h2>
 
       <form id="formulaire">
-        <label>Marque <input name="marque" placeholder="Ex. Asics" required></label>
-        <label>Modèle <input name="modele" placeholder="Ex. GEL-1130" required></label>
-        <label>Pointure EU <input name="pointure" placeholder="Ex. 42" required></label>
-        <label>Couleur <input name="couleur" placeholder="Ex. Blanc et argent" required></label>
+        <label>Nom <input name="nom" placeholder="Ex. Asics GEL-1130" required></label>
+        <label>Prix (€) <input name="prix" type="number" step="0.01" min="0" placeholder="Ex. 129.99" required></label>
+        <label>Année de sortie <input name="annee_sortie" type="number" min="1900" max="2100" placeholder="Ex. 2021" required></label>
+        <label>Pointure EU <input name="pointure" type="number" min="20" max="55" placeholder="Ex. 42" required></label>
         <button type="submit">Ajouter à ma collection</button>
       </form>
 
@@ -123,7 +123,7 @@
   </main>
 
   <script>
-    const api = "/api/sneakers";
+    const api = "/api/chaussures";
     const liste = document.querySelector("#liste");
     const compteur = document.querySelector("#compteur");
     const formulaire = document.querySelector("#formulaire");
@@ -153,9 +153,15 @@
         }
 
         liste.replaceChildren();
-        for (const paire of paires) {
+        for (const p of paires) {
           const ligne = liste.insertRow();
-          for (const valeur of [paire.marque, paire.modele, paire.pointure, paire.couleur]) {
+          const valeurs = [
+            p.nom,
+            Number(p.prix).toFixed(2) + " €",
+            p.annee_sortie,
+            p.pointure
+          ];
+          for (const valeur of valeurs) {
             ligne.insertCell().textContent = valeur;
           }
         }
@@ -178,13 +184,16 @@
           body: JSON.stringify(paire)
         });
 
-        if (!reponse.ok) throw new Error();
+        if (!reponse.ok) {
+          const erreur = await reponse.json().catch(() => ({}));
+          throw new Error(erreur.erreur || "erreur " + reponse.status);
+        }
 
         formulaire.reset();
         message.textContent = "Paire ajoutée à la collection.";
         await rafraichir();
-      } catch {
-        message.textContent = "Impossible d’enregistrer la paire.";
+      } catch (err) {
+        message.textContent = "Impossible d’enregistrer la paire : " + err.message;
       } finally {
         bouton.disabled = false;
       }
